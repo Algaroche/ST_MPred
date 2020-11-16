@@ -21,6 +21,7 @@
 #include "main.h"
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -41,6 +42,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+SPI_HandleTypeDef hspi3;
 
 /* USER CODE BEGIN PV */
 
@@ -49,6 +51,7 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_SPI3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -62,67 +65,143 @@ static void MX_GPIO_Init(void);
   * @brief  The application entry point.
   * @retval int
   */
+
+/*IIS2MDC_Object_t magneto_sensor;
+IIS2MDC_IO_t magneto_IO;
+IIS2MDC_Axes_t magneto_axes;*/
+
+LPS22HH_Object_t press_sensor;
+LPS22HH_IO_t press_IO;
+
+typedef enum estados {Inicializacion, Midiendo, Empaquetando, EnviandoTrama} Estados;
+uint8_t len = 6;
+
+
 int main(void)
 {
-  /* USER CODE BEGIN 1 */
-	//uint16_t buffer[1024];
+	Estados estado_actual=Inicializacion;
+	uint8_t buffer[1000];
+	uint16_t posicion_inicio=0;
+	uint8_t numero_medidas=0;
+	uint8_t max_medidas = 165;
 	uint16_t i=0;
-	uint8_t buffer[9];
-	uint32_t numero=0;
-
-  /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
-
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
-
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
-
   /* Configure the system clock */
   SystemClock_Config();
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USB_DEVICE_Init();
-  /* USER CODE BEGIN 2 */
-  //while (HAL_GPIO_ReadPin(BUTTON_PWR_GPIO_Port,BUTTON_PWR_Pin)!=GPIO_PIN_SET){}
-
-  /* USER CODE END 2 */
+  MX_SPI3_Init();
 
   /* Infinite loop */
-  buffer[0] = 0x3e;
-  buffer[1] = 0xeb;
-  buffer[2] = 0xb5;
-  buffer[3] = 0x90;
-  buffer[4] = 0x0c;
-  buffer[5] = 0x0a;
-  buffer[6] = 0x00;
-  buffer[7] = 0x00;
-  buffer[8] = 0xf6;
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-	  /*for (i=0; i<1024;i++){
-		  buffer[i]= i;
-	  }*/
-	  while (1){
-	  CDC_Transmit_FS(&buffer, sizeof(buffer));
+	  switch (estado_actual)
+	  {
+		  case Inicializacion:
+			  InicializaRegistro(sizeof(buffer), &buffer);
+			  InicializaSensores();
+			  estado_actual = Midiendo;
+			  break;
+
+		  case Midiendo:
+			  TomaMedidas(posicion_inicio, &buffer);
+			  numero_medidas += 1;
+			  estado_actual = Empaquetando;
+			  break;
+
+		  case Empaquetando:
+			  CreaTrama(posicion_inicio,&buffer);
+			  if (numero_medidas <= max_medidas)
+			  {
+				  posicion_inicio += len;
+			  	  estado_actual = Midiendo;
+			  	  break;
+			  }
+			  else
+			  {
+				  estado_actual = EnviandoTrama;
+				  break;
+			  }
+
+		  case EnviandoTrama:
+			  CDC_Transmit_FS(&buffer, sizeof(buffer));
+			  //EnviaTrama(buffer);
+			  InicializaRegistro(sizeof(buffer), &buffer);
+			  numero_medidas = 0;
+			  estado_actual = Midiendo;
+			  break;
 	  }
-
-
-    /* USER CODE BEGIN 3 */
-
-  /* USER CODE END 3 */
+  }
 }
+
+void InicializaRegistro(uint16_t tamano_buffer, uint8_t *Trama)
+{
+	uint16_t i=0;
+	for (i=0; i<(tamano_buffer);i++)
+		Trama[i]=0;
 }
+void InicializaSensores(void)
+{
+	press_IO.Address		= 0xba;		//1011101b b=0 leer, b=1 escribir
+	press_IO.BusType		= 0;		//0 si I2C
+	press_IO.DeInit			= BSP_I2C2_DeInit;
+	press_IO.GetTick		= BSP_GetTick;
+	press_IO.Init			= BSP_I2C2_Init;
+	press_IO.ReadReg		= BSP_I2C2_ReadReg;
+	press_IO.WriteReg		= BSP_I2C2_WriteReg;
+
+	LPS22HH_RegisterBusIO(&press_sensor , &press_IO);
+	LPS22HH_Init(&press_sensor);
+	LPS22HH_PRESS_Enable(&press_sensor);
+	LPS22HH_TEMP_Enable(&press_sensor);
+
+	/*magneto_IO.Address 	= 0x3c;		//0011110b b=0 leer, b=1 escribir
+	magneto_IO.BusType 	= 0; 		//0 si I2C
+	magneto_IO.DeInit 	= BSP_I2C2_DeInit;
+	magneto_IO.GetTick 	= BSP_GetTick;
+	magneto_IO.Init 		= BSP_I2C2_Init;
+	magneto_IO.ReadReg 	= BSP_I2C2_ReadReg;
+	magneto_IO.WriteReg 	= BSP_I2C2_WriteReg;
+
+	IIS2MDC_RegisterBusIO(&magneto_sensor, &magneto_IO);
+	IIS2MDC_Init(&magneto_sensor);
+	IIS2MDC_MAG_Enable(&magneto_sensor);
+	IIS2MDC_MAG_GetAxes(&magneto_sensor, &magneto_axes);*/
+
+}
+void TomaMedidas(uint16_t Inicio, uint8_t *Trama)
+{
+	float press_value;
+	LPS22HH_PRESS_GetPressure(&press_sensor, &press_value);
+	Trama[Inicio+1] = ((uint16_t)(press_value*10));
+	Trama[Inicio+2] = ((uint16_t)(press_value*10))>>8;
+	float temp_value;
+	LPS22HH_TEMP_GetTemperature(&press_sensor, &temp_value);
+	Trama[Inicio+3] = ((uint16_t)(temp_value*100));
+	Trama[Inicio+4] = ((uint16_t)(temp_value*100))>>8;
+
+}
+void CreaTrama(uint16_t Inicio, uint8_t *Trama)
+{
+	Trama[Inicio] = 0x3e;
+	unsigned int BCC_CRC = 0;
+	for (int i = Inicio; i < (Inicio+len-1); i++)
+		BCC_CRC ^= Trama[i];
+	Trama[Inicio+len-1]=BCC_CRC;
+}
+
+void EnviaTrama(uint8_t registro[60])
+{
+
+	CDC_Transmit_FS(&registro, sizeof(registro));
+
+}
+
 /**
   * @brief System Clock Configuration
   * @retval None
@@ -170,12 +249,53 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C2|RCC_PERIPHCLK_USB;
+  PeriphClkInit.I2c2ClockSelection = RCC_I2C2CLKSOURCE_PCLK1;
   PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_HSI48;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief SPI3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI3_Init(void)
+{
+
+  /* USER CODE BEGIN SPI3_Init 0 */
+
+  /* USER CODE END SPI3_Init 0 */
+
+  /* USER CODE BEGIN SPI3_Init 1 */
+
+  /* USER CODE END SPI3_Init 1 */
+  /* SPI3 parameter configuration*/
+  hspi3.Instance = SPI3;
+  hspi3.Init.Mode = SPI_MODE_MASTER;
+  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi3.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi3.Init.NSS = SPI_NSS_SOFT;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi3.Init.CRCPolynomial = 7;
+  hspi3.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
+  hspi3.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  if (HAL_SPI_Init(&hspi3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI3_Init 2 */
+
+  /* USER CODE END SPI3_Init 2 */
+
 }
 
 /**
@@ -237,14 +357,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(BOOT0_PE0H3_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : SPI3_MISO_Pin SPI3_MOSI_Pin SPI3_CLK_Pin */
-  GPIO_InitStruct.Pin = SPI3_MISO_Pin|SPI3_MOSI_Pin|SPI3_CLK_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  GPIO_InitStruct.Alternate = GPIO_AF6_SPI3;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : SDMMC_D3_Pin SDMMC_D2_Pin SDMMC_D1_Pin SDMMC_CK_Pin
                            SDMMC_D0_Pin */
@@ -355,14 +467,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(WIFI_RST_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : I2C2_SMBA_Pin I2C2_SDA_Pin I2C2_SDAF0_Pin */
-  GPIO_InitStruct.Pin = I2C2_SMBA_Pin|I2C2_SDA_Pin|I2C2_SDAF0_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  GPIO_InitStruct.Alternate = GPIO_AF4_I2C2;
-  HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
   /*Configure GPIO pins : CS_WIFI_Pin C_EN_Pin CS_ADWB_Pin STSAFE_RESET_Pin
                            WIFI_BOOT0_Pin CS_DHC_Pin SEL3_4_Pin */
@@ -504,11 +608,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(PE12_GPIO_Port, &GPIO_InitStruct);
-
-  GPIO_InitStruct.Pin = BOOT0_PE0_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(BOOT0_PE0_GPIO_Port, &GPIO_InitStruct);
 
 }
 

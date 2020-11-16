@@ -516,9 +516,20 @@ int32_t STTS751_TEMP_GetTemperatureLimitStatus(STTS751_Object_t *pObj, uint8_t *
     return STTS751_ERROR;
   }
 
-  *HighLimit = status.t_high;
-  *LowLimit = status.t_low;
-  *ThermLimit = status.thrm;
+  if(HighLimit != NULL)
+  {
+    *HighLimit = status.t_high;
+  }
+
+  if(LowLimit != NULL)
+  {
+    *LowLimit = status.t_low;
+  }
+
+  if(ThermLimit != NULL)
+  {
+    *ThermLimit = status.thrm;
+  }
 
   return STTS751_OK;
 }
