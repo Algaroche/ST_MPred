@@ -65,9 +65,9 @@ static void MX_GPIO_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	uint16_t buffer[1024];
+	//uint16_t buffer[1024];
 	uint16_t i=0;
-	uint8_t buffer1;
+	uint8_t buffer[9];
 	uint32_t numero=0;
 
   /* USER CODE END 1 */
@@ -97,13 +97,22 @@ int main(void)
   /* USER CODE END 2 */
 
   /* Infinite loop */
+  buffer[0] = 0x3e;
+  buffer[1] = 0xeb;
+  buffer[2] = 0xb5;
+  buffer[3] = 0x90;
+  buffer[4] = 0x0c;
+  buffer[5] = 0x0a;
+  buffer[6] = 0x00;
+  buffer[7] = 0x00;
+  buffer[8] = 0xf6;
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
-	  for (i=0; i<1024;i++){
+	  /*for (i=0; i<1024;i++){
 		  buffer[i]= i;
-	  }
+	  }*/
 	  while (1){
 	  CDC_Transmit_FS(&buffer, sizeof(buffer));
 	  }
