@@ -29,10 +29,9 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l4xx_hal.h"
-#include "steval_stwinkt1_bus.h"
-//#include "iis2mdc.h"
+#include "iis2mdc.h"
 #include "lps22hh.h"
-
+#include "steval_stwinkt1_bus.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 

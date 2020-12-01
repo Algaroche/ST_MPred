@@ -38,6 +38,7 @@
 /* Defines ------------------------------------------------------------------*/
 /* STMicroelectronics.X-CUBE-MEMS1.8.1.1 */
 #define STTS751_TEMP_I2C
+#define IIS2MDC_MAG_I2C
 #define LPS22HH_PRESSTEMP_I2C
 #define HTS221_HUMTEMP_I2C
 

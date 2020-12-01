@@ -59,24 +59,22 @@ static void MX_SPI3_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+IIS2MDC_Object_t magneto_sensor;
+IIS2MDC_IO_t magneto_IO;
+IIS2MDC_Axes_t magneto_axes;
+
+LPS22HH_Object_t press_sensor;
+LPS22HH_IO_t press_IO;
+
+typedef enum estados {Inicializacion, Midiendo, Empaquetando, EnviandoTrama} Estados;
+uint8_t len = 12;
+
 /* USER CODE END 0 */
 
 /**
   * @brief  The application entry point.
   * @retval int
   */
-
-//IIS2MDC_Object_t magneto_sensor;
-//IIS2MDC_IO_t magneto_IO;
-//IIS2MDC_Axes_t magneto_axes;
-
-LPS22HH_Object_t press_sensor;
-LPS22HH_IO_t press_IO;
-
-typedef enum estados {Inicializacion, Midiendo, Empaquetando, EnviandoTrama} Estados;
-uint8_t len = 6;
-
-
 int main(void)
 {
 	Estados estado_actual=Inicializacion;
@@ -161,18 +159,18 @@ void InicializaSensores(void)
 	LPS22HH_PRESS_Enable(&press_sensor);
 	LPS22HH_TEMP_Enable(&press_sensor);
 
-//	magneto_IO.Address 	= 0x3c;		//0011110b b=0 leer, b=1 escribir
-//	magneto_IO.BusType 	= 0; 		//0 si I2C
-//	magneto_IO.DeInit 	= BSP_I2C2_DeInit;
-//	magneto_IO.GetTick 	= BSP_GetTick;
-//	magneto_IO.Init 		= BSP_I2C2_Init;
-//	magneto_IO.ReadReg 	= BSP_I2C2_ReadReg;
-//	magneto_IO.WriteReg 	= BSP_I2C2_WriteReg;
+	magneto_IO.Address 	= 0x3c;		//0011110b b=0 leer, b=1 escribir
+	magneto_IO.BusType 	= 0; 		//0 si I2C
+	magneto_IO.DeInit 	= BSP_I2C2_DeInit;
+	magneto_IO.GetTick 	= BSP_GetTick;
+	magneto_IO.Init 	= BSP_I2C2_Init;
+	magneto_IO.ReadReg 	= BSP_I2C2_ReadReg;
+	magneto_IO.WriteReg = BSP_I2C2_WriteReg;
 
-//	IIS2MDC_RegisterBusIO(&magneto_sensor, &magneto_IO);
-//	IIS2MDC_Init(&magneto_sensor);
-//	IIS2MDC_MAG_Enable(&magneto_sensor);
-//	IIS2MDC_MAG_GetAxes(&magneto_sensor, &magneto_axes);
+	IIS2MDC_RegisterBusIO(&magneto_sensor, &magneto_IO);
+	IIS2MDC_Init(&magneto_sensor);
+	IIS2MDC_MAG_Enable(&magneto_sensor);
+	IIS2MDC_MAG_GetAxes(&magneto_sensor, &magneto_axes);
 
 }
 void TomaMedidas(uint16_t Inicio, uint8_t *Trama)
@@ -185,6 +183,14 @@ void TomaMedidas(uint16_t Inicio, uint8_t *Trama)
 	LPS22HH_TEMP_GetTemperature(&press_sensor, &temp_value);
 	Trama[Inicio+3] = ((uint16_t)(temp_value*100));
 	Trama[Inicio+4] = ((uint16_t)(temp_value*100))>>8;
+
+	IIS2MDC_MAG_GetAxes(&magneto_sensor, &magneto_axes);
+	Trama[Inicio+5] = ((uint16_t)(magneto_axes.x));
+	Trama[Inicio+6] = ((uint16_t)(magneto_axes.x))>>8;
+	Trama[Inicio+7] = ((uint16_t)(magneto_axes.y));
+	Trama[Inicio+8] = ((uint16_t)(magneto_axes.y))>>8;
+	Trama[Inicio+9] = ((uint16_t)(magneto_axes.z));
+	Trama[Inicio+10] = ((uint16_t)(magneto_axes.z))>>8;
 
 }
 void CreaTrama(uint16_t Inicio, uint8_t *Trama)

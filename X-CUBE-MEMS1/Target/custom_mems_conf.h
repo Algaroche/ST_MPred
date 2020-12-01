@@ -40,6 +40,8 @@ extern "C" {
 
 #define USE_CUSTOM_ENV_SENSOR_STTS751_0           1U
 
+#define USE_CUSTOM_MOTION_SENSOR_IIS2MDC_0        1U
+
 #define CUSTOM_HTS221_0_I2C_Init BSP_I2C2_Init
 #define CUSTOM_HTS221_0_I2C_DeInit BSP_I2C2_DeInit
 #define CUSTOM_HTS221_0_I2C_ReadReg BSP_I2C2_ReadReg
@@ -54,6 +56,11 @@ extern "C" {
 #define CUSTOM_STTS751_0_I2C_DeInit BSP_I2C2_DeInit
 #define CUSTOM_STTS751_0_I2C_ReadReg BSP_I2C2_ReadReg
 #define CUSTOM_STTS751_0_I2C_WriteReg BSP_I2C2_WriteReg
+
+#define CUSTOM_IIS2MDC_0_I2C_Init BSP_I2C2_Init
+#define CUSTOM_IIS2MDC_0_I2C_DeInit BSP_I2C2_DeInit
+#define CUSTOM_IIS2MDC_0_I2C_ReadReg BSP_I2C2_ReadReg
+#define CUSTOM_IIS2MDC_0_I2C_WriteReg BSP_I2C2_WriteReg
 
 #ifdef __cplusplus
 }
