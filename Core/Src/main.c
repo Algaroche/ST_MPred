@@ -66,9 +66,9 @@ static void MX_SPI3_Init(void);
   * @retval int
   */
 
-/*IIS2MDC_Object_t magneto_sensor;
-IIS2MDC_IO_t magneto_IO;
-IIS2MDC_Axes_t magneto_axes;*/
+//IIS2MDC_Object_t magneto_sensor;
+//IIS2MDC_IO_t magneto_IO;
+//IIS2MDC_Axes_t magneto_axes;
 
 LPS22HH_Object_t press_sensor;
 LPS22HH_IO_t press_IO;
@@ -131,8 +131,9 @@ int main(void)
 		  case EnviandoTrama:
 			  CDC_Transmit_FS(&buffer, sizeof(buffer));
 			  //EnviaTrama(buffer);
-			  InicializaRegistro(sizeof(buffer), &buffer);
+			  //InicializaRegistro(sizeof(buffer), &buffer);
 			  numero_medidas = 0;
+			  posicion_inicio = 0;
 			  estado_actual = Midiendo;
 			  break;
 	  }
@@ -160,18 +161,18 @@ void InicializaSensores(void)
 	LPS22HH_PRESS_Enable(&press_sensor);
 	LPS22HH_TEMP_Enable(&press_sensor);
 
-	/*magneto_IO.Address 	= 0x3c;		//0011110b b=0 leer, b=1 escribir
-	magneto_IO.BusType 	= 0; 		//0 si I2C
-	magneto_IO.DeInit 	= BSP_I2C2_DeInit;
-	magneto_IO.GetTick 	= BSP_GetTick;
-	magneto_IO.Init 		= BSP_I2C2_Init;
-	magneto_IO.ReadReg 	= BSP_I2C2_ReadReg;
-	magneto_IO.WriteReg 	= BSP_I2C2_WriteReg;
+//	magneto_IO.Address 	= 0x3c;		//0011110b b=0 leer, b=1 escribir
+//	magneto_IO.BusType 	= 0; 		//0 si I2C
+//	magneto_IO.DeInit 	= BSP_I2C2_DeInit;
+//	magneto_IO.GetTick 	= BSP_GetTick;
+//	magneto_IO.Init 		= BSP_I2C2_Init;
+//	magneto_IO.ReadReg 	= BSP_I2C2_ReadReg;
+//	magneto_IO.WriteReg 	= BSP_I2C2_WriteReg;
 
-	IIS2MDC_RegisterBusIO(&magneto_sensor, &magneto_IO);
-	IIS2MDC_Init(&magneto_sensor);
-	IIS2MDC_MAG_Enable(&magneto_sensor);
-	IIS2MDC_MAG_GetAxes(&magneto_sensor, &magneto_axes);*/
+//	IIS2MDC_RegisterBusIO(&magneto_sensor, &magneto_IO);
+//	IIS2MDC_Init(&magneto_sensor);
+//	IIS2MDC_MAG_Enable(&magneto_sensor);
+//	IIS2MDC_MAG_GetAxes(&magneto_sensor, &magneto_axes);
 
 }
 void TomaMedidas(uint16_t Inicio, uint8_t *Trama)
