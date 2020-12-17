@@ -31,6 +31,7 @@ extern "C" {
 #include "stm32l4xx_hal.h"
 #include "iis2mdc.h"
 #include "lps22hh.h"
+#include "iis3dwb.h"
 #include "steval_stwinkt1_bus.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */

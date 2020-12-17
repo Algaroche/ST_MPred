@@ -44,6 +44,7 @@
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi3;
 
+uint8_t SPI3InitCounter = 0;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -52,6 +53,19 @@ SPI_HandleTypeDef hspi3;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI3_Init(void);
+
+int32_t MX_SPI3_Init_WRAP(void);
+int32_t MX_SPI3_DeInit_WRAP(void);
+int32_t leer_registro(uint16_t Address, uint16_t Reg, uint8_t * pData, uint16_t len);
+int32_t escribir_registro(uint16_t Address, uint16_t Reg, uint8_t * pData, uint16_t len);
+
+void InicializaRegistro(uint16_t tamano_buffer, uint8_t *Trama);
+void InicializaSensores(void);
+void TomaMedidas(uint16_t Inicio, uint8_t *Trama);
+void CreaTrama(uint16_t Inicio, uint8_t *Trama);
+void EnviaTrama(uint8_t registro[60]);
+
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -66,8 +80,13 @@ IIS2MDC_Axes_t magneto_axes;
 LPS22HH_Object_t press_sensor;
 LPS22HH_IO_t press_IO;
 
+
+IIS3DWB_Object_t vibro_sensor;
+IIS3DWB_IO_t vibro_IO;
+IIS3DWB_Axes_t vibro_axes;
+
 typedef enum estados {Inicializacion, Midiendo, Empaquetando, EnviandoTrama} Estados;
-uint8_t len = 12;
+uint8_t len = 18;
 
 /* USER CODE END 0 */
 
@@ -82,7 +101,7 @@ int main(void)
 	uint16_t posicion_inicio=0;
 	uint8_t numero_medidas=0;
 	uint8_t max_medidas = 165;
-	uint16_t i=0;
+	//uint16_t i=0;
 
   /* MCU Configuration--------------------------------------------------------*/
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
@@ -172,6 +191,23 @@ void InicializaSensores(void)
 	IIS2MDC_MAG_Enable(&magneto_sensor);
 	IIS2MDC_MAG_GetAxes(&magneto_sensor, &magneto_axes);
 
+	vibro_IO.Address	= 0;
+	vibro_IO.BusType	= 2;	//SPI de 3 cables
+	vibro_IO.DeInit		= MX_SPI3_DeInit_WRAP;
+	vibro_IO.GetTick	= BSP_GetTick;
+	vibro_IO.Init		= MX_SPI3_Init_WRAP;
+	vibro_IO.ReadReg	= leer_registro;
+	vibro_IO.WriteReg	= escribir_registro;
+
+	IIS3DWB_RegisterBusIO(&vibro_sensor, &vibro_IO);
+	IIS3DWB_Init(&vibro_sensor);
+	IIS3DWB_ACC_Enable(&vibro_sensor);
+	IIS3DWB_ACC_GetAxes(&vibro_sensor, &vibro_axes);
+
+	float sensitivity;
+	IIS3DWB_ACC_GetSensitivity(&vibro_sensor, &sensitivity);
+
+
 }
 void TomaMedidas(uint16_t Inicio, uint8_t *Trama)
 {
@@ -192,6 +228,14 @@ void TomaMedidas(uint16_t Inicio, uint8_t *Trama)
 	Trama[Inicio+9] = ((uint16_t)(magneto_axes.z));
 	Trama[Inicio+10] = ((uint16_t)(magneto_axes.z))>>8;
 
+	IIS3DWB_ACC_GetAxes(&vibro_sensor, &vibro_axes);
+	Trama[Inicio+11] = ((uint16_t)(vibro_axes.x));
+	Trama[Inicio+12] = ((uint16_t)(vibro_axes.x))>>8;
+	Trama[Inicio+13] = ((uint16_t)(vibro_axes.y));
+	Trama[Inicio+14] = ((uint16_t)(vibro_axes.y))>>8;
+	Trama[Inicio+15] = ((uint16_t)(vibro_axes.z));
+	Trama[Inicio+16] = ((uint16_t)(vibro_axes.z))>>8;
+
 }
 void CreaTrama(uint16_t Inicio, uint8_t *Trama)
 {
@@ -208,7 +252,43 @@ void EnviaTrama(uint8_t registro[60])
 	CDC_Transmit_FS(&registro, sizeof(registro));
 
 }
+int32_t leer_registro(uint16_t Address, uint16_t Reg, uint8_t * pData, uint16_t len)
+{
+	HAL_StatusTypeDef Error_Code;
+	int32_t ret = 0;
 
+	//Pongo a cero el ChipSelect del sensor correspondiente
+	HAL_GPIO_WritePin(GPIOF,GPIO_PIN_5,GPIO_PIN_RESET);
+	//Mando un mensaje indicando el registro que quiero leer
+	if ((Error_Code = HAL_SPI_Transmit(&hspi3, &Reg, 2, 10000)) != HAL_OK)
+		ret = Error_Code;
+	//Recibo datos del registro indicado
+	if ((Error_Code = HAL_SPI_Receive(&hspi3, &pData, len, 10000)) != HAL_OK)
+		ret = Error_Code;
+	//Pongo a uno el ChipSelect del sensor correspondiente
+	HAL_GPIO_WritePin(GPIOF,GPIO_PIN_5,GPIO_PIN_SET);
+
+	return ret;
+
+}
+int32_t escribir_registro(uint16_t Address, uint16_t Reg, uint8_t * pData, uint16_t len)
+{
+	HAL_StatusTypeDef Error_Code;
+	int32_t ret = 0;
+
+	//Pongo a cero el ChipSelect del sensor correspondiente
+	HAL_GPIO_WritePin(GPIOF,GPIO_PIN_5,GPIO_PIN_RESET);
+	//Mando un mensaje indicando el registro en el que quiero escribir
+	if ((Error_Code = HAL_SPI_Transmit(&hspi3, &Reg, 2, 10000)) != HAL_OK)
+		ret = Error_Code;
+	//Escribo los datos en el registro indicado
+	if ((Error_Code = HAL_SPI_Transmit(&hspi3, &pData, len, 10000)) != HAL_OK)
+		ret = Error_Code;
+	//Pongo a uno el ChipSelect del sensor correspondiente
+	HAL_GPIO_WritePin(GPIOF,GPIO_PIN_5,GPIO_PIN_SET);
+
+	return ret;
+}
 /**
   * @brief System Clock Configuration
   * @retval None
@@ -303,6 +383,35 @@ static void MX_SPI3_Init(void)
 
   /* USER CODE END SPI3_Init 2 */
 
+}
+
+//Encapsula la función de inicialización del SPI3 para poder pasarsela al inicializdor del sensor que vaya por SPI
+
+int32_t MX_SPI3_Init_WRAP(void)
+{
+	  int32_t ret = BSP_ERROR_NONE;
+	  MX_SPI3_Init();
+	  return ret;
+
+}
+
+
+int32_t MX_SPI3_DeInit_WRAP(void)
+{
+	int32_t ret = BSP_ERROR_NONE;
+
+	if (SPI3InitCounter > 0)
+	{
+	  if (--SPI3InitCounter == 0)
+	  {
+			/* DeInit the I2C */
+		if (HAL_SPI_DeInit(&hspi3) != HAL_OK)
+		{
+		  ret = BSP_ERROR_BUS_FAILURE;
+		}
+	  }
+	}
+	return ret;
 }
 
 /**
