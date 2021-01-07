@@ -29,13 +29,12 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l4xx_hal.h"
-#include "iis2mdc.h"
-#include "lps22hh.h"
-#include "iis3dwb.h"
-#include "steval_stwinkt1_bus.h"
+#include "Archivo_Alberto.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_SPI3_Init(void);
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -205,8 +204,10 @@ void Error_Handler(void);
 #define CHRG_GPIO_Port GPIOF
 #define WIFI_DRDY_Pin GPIO_PIN_11
 #define WIFI_DRDY_GPIO_Port GPIOE
+#define WIFI_DRDY_EXTI_IRQn EXTI15_10_IRQn
 #define BUTTON_PWR_Pin GPIO_PIN_10
 #define BUTTON_PWR_GPIO_Port GPIOD
+#define BUTTON_PWR_EXTI_IRQn EXTI15_10_IRQn
 #define USART3_RX_Pin GPIO_PIN_9
 #define USART3_RX_GPIO_Port GPIOD
 #define USART3_TX_Pin GPIO_PIN_8
@@ -235,6 +236,7 @@ void Error_Handler(void);
 #define INT1_DHC_GPIO_Port GPIOE
 #define INT_STT_Pin GPIO_PIN_15
 #define INT_STT_GPIO_Port GPIOE
+#define INT_STT_EXTI_IRQn EXTI15_10_IRQn
 #define PB11_Pin GPIO_PIN_11
 #define PB11_GPIO_Port GPIOB
 #define PB14_Pin GPIO_PIN_14
@@ -265,6 +267,7 @@ void Error_Handler(void);
 #define PE12_GPIO_Port GPIOE
 #define INT1_ADWB_Pin GPIO_PIN_14
 #define INT1_ADWB_GPIO_Port GPIOE
+#define INT1_ADWB_EXTI_IRQn EXTI15_10_IRQn
 #define USART3_CTS_Pin GPIO_PIN_13
 #define USART3_CTS_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
