@@ -24,7 +24,7 @@ IIS3DWB_IO_t vibro_IO;
 IIS3DWB_Axes_t vibro_axes;
 
 
-uint8_t len = 8;//18;//12;//
+uint8_t len = 3;//18;//12;//
 volatile uint8_t check = 0;
 
 EXTI_HandleTypeDef iis3dwb_exti;
@@ -39,36 +39,35 @@ EXTI_HandleTypeDef iis3dwb_exti;
 uint8_t exito;
 uint8_t fifo_buffer[3000];
 
+static int16_t buffer[100];
+static uint16_t posicion_inicio=0;
+static uint16_t numero_medidas=0;
+static Estados estado_actual=Inicializacion;
+
 void MaquinaEstados(void)
 {
-		static uint8_t buffer[1000];
-		static uint16_t posicion_inicio=0;
-		static uint16_t numero_medidas=0;
-		static Estados estado_actual=Inicializacion;
 
-		//uint16_t i=0;
-//		extern uint8_t len;
-		uint8_t max_medidas = sizeof(buffer)/len;
+	uint16_t max_medidas = sizeof(buffer)/len/sizeof(buffer[0]);
 
 	switch (estado_actual)
 	{
 	case Inicializacion:
-		InicializaRegistro(sizeof(buffer), &buffer);
+		InicializaRegistro(sizeof(buffer)/sizeof(buffer[0]), &buffer);
 		InicializaSensores();
 		estado_actual = Midiendo;
 		break;
 
 	case Midiendo:
-//		TomaMedidas(posicion_inicio, &buffer);
-		Calcula_FFT(posicion_inicio, &buffer);
+		TomaMedidas(posicion_inicio, &buffer);
+//		Calcula_FFT(posicion_inicio, &buffer);
 		numero_medidas += 1;
 		estado_actual = Empaquetando;
 
 		break;
 
 	case Empaquetando:
-		CreaTrama(posicion_inicio,&buffer);
-		if (numero_medidas <= max_medidas)
+//		CreaTrama(posicion_inicio,&buffer);
+		if (numero_medidas < max_medidas)
 		{
 			posicion_inicio += len;
 			estado_actual = Midiendo;
@@ -82,7 +81,7 @@ void MaquinaEstados(void)
 		}
 
 	case EnviandoTrama:
-		CDC_Transmit_FS(&buffer, sizeof(buffer));
+		//CDC_Transmit_FS(&buffer, sizeof(buffer));
 		//EnviaTrama(buffer);
 		//InicializaRegistro(sizeof(buffer), &buffer);
 		numero_medidas = 0;
@@ -110,15 +109,16 @@ void IIS3DWB_Peripheral_Init(void)
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
 	HAL_GPIO_Init(IIS3DWB_SPI_CS_GPIO_Port, &GPIO_InitStruct);
 
-	/*Configure GPIO pins : STTS751_INT_Pin IIS3DWB_INT1_Pin */ //YA SE HA CONFIGURADO ESTO EN EL MAIN
-//	GPIO_InitStruct.Pin =  IIS3DWB_INT1_Pin ; //GPIO_PIN_14
+///////////////////YA SE HA CONFIGURADO ESTO EN EL MAIN////////////////////
+	/*Configure GPIO pins : STTS751_INT_Pin IIS3DWB_INT1_Pin */
 //	GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
 //	GPIO_InitStruct.Pull = GPIO_NOPULL;
 //	HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+//////////////////////////////////////////////////////////////////////////
 
 	/* EXTI interrupt init*/
-//	HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
-//	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+	HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 	HAL_EXTI_GetHandle(&iis3dwb_exti, EXTI_LINE_14);
 	HAL_EXTI_RegisterCallback(&iis3dwb_exti,  HAL_EXTI_COMMON_CB_ID, IIS3DWB_Int_Callback);
@@ -128,10 +128,9 @@ void IIS3DWB_Peripheral_Init(void)
 static void IIS3DWB_Int_Callback(void)
 {
 	check++;
-
 }
 
-void InicializaRegistro(uint16_t tamano_buffer, uint8_t *Trama)
+void InicializaRegistro(uint16_t tamano_buffer, int16_t *Trama)
 {
 	uint16_t i=0;
 	for (i=0; i<(tamano_buffer);i++)
@@ -190,48 +189,47 @@ void InicializaSensores(void)
 		IIS3DWB_ACC_SetOutputDataRate(&vibro_sensor, maxODR);		// Pongo el ODR al máximo 26.7KHz
 		IIS3DWB_ACC_SetFullScale(&vibro_sensor, 2);					//Pongo el fullscale range de la aceleración en 2g
 		IIS3DWB_ACC_GetSensitivity(&vibro_sensor, &sensitivity);
-		IIS3DWB_FIFO_Set_Mode(&vibro_sensor, IIS3DWB_FIFO_MODE);
-		IIS3DWB_INT1_Set_FIFO_Full(&vibro_sensor, IIS3DWB_FIFO_STATUS2);
+
+//		IIS3DWB_FIFO_Set_Mode(&vibro_sensor, IIS3DWB_FIFO_MODE);
+//		IIS3DWB_INT1_Set_FIFO_Full(&vibro_sensor, IIS3DWB_FIFO_STATUS2);
+
 		IIS3DWB_ACC_Enable(&vibro_sensor);
 		//	uint8_t status;
 		//	IIS3DWB_FIFO_Get_Full_Status(&vibro_sensor, &status);
 
 
 }
-void TomaMedidas(uint16_t Inicio, uint8_t *Trama)
+void TomaMedidas(uint16_t Inicio, int16_t *Trama)
 {
-		float press_value;
-		LPS22HH_PRESS_GetPressure(&press_sensor, &press_value);
-		Trama[Inicio+1] = ((uint16_t)(press_value*10));
-		Trama[Inicio+2] = ((uint16_t)(press_value*10))>>8;
-		float temp_value;
-		LPS22HH_TEMP_GetTemperature(&press_sensor, &temp_value);
-		Trama[Inicio+3] = ((uint16_t)(temp_value*100));
-		Trama[Inicio+4] = ((uint16_t)(temp_value*100))>>8;
-
-		IIS2MDC_MAG_GetAxes(&magneto_sensor, &magneto_axes);
-		Trama[Inicio+5] = ((uint16_t)(magneto_axes.x));
-		Trama[Inicio+6] = ((uint16_t)(magneto_axes.x))>>8;
-		Trama[Inicio+7] = ((uint16_t)(magneto_axes.y));
-		Trama[Inicio+8] = ((uint16_t)(magneto_axes.y))>>8;
-		Trama[Inicio+9] = ((uint16_t)(magneto_axes.z));
-		Trama[Inicio+10] = ((uint16_t)(magneto_axes.z))>>8;
+//		float press_value;
+//		LPS22HH_PRESS_GetPressure(&press_sensor, &press_value);
+//		Trama[Inicio+1] = ((uint16_t)(press_value*10));
+//		Trama[Inicio+2] = ((uint16_t)(press_value*10))>>8;
+//		float temp_value;
+//		LPS22HH_TEMP_GetTemperature(&press_sensor, &temp_value);
+//		Trama[Inicio+3] = ((uint16_t)(temp_value*100));
+//		Trama[Inicio+4] = ((uint16_t)(temp_value*100))>>8;
+//
+//		IIS2MDC_MAG_GetAxes(&magneto_sensor, &magneto_axes);
+//		Trama[Inicio+5] = ((uint16_t)(magneto_axes.x));
+//		Trama[Inicio+6] = ((uint16_t)(magneto_axes.x))>>8;
+//		Trama[Inicio+7] = ((uint16_t)(magneto_axes.y));
+//		Trama[Inicio+8] = ((uint16_t)(magneto_axes.y))>>8;
+//		Trama[Inicio+9] = ((uint16_t)(magneto_axes.z));
+//		Trama[Inicio+10] = ((uint16_t)(magneto_axes.z))>>8;
 
 		IIS3DWB_ACC_GetAxes(&vibro_sensor, &vibro_axes);
-		Trama[Inicio+11] = ((uint16_t)(vibro_axes.x));
-		Trama[Inicio+12] = ((uint16_t)(vibro_axes.x))>>8;
-		Trama[Inicio+13] = ((uint16_t)(vibro_axes.y));
-		Trama[Inicio+14] = ((uint16_t)(vibro_axes.y))>>8;
-		Trama[Inicio+15] = ((uint16_t)(vibro_axes.z));
-		Trama[Inicio+16] = ((uint16_t)(vibro_axes.z))>>8;
+//		Trama[Inicio+11] = ((uint16_t)(vibro_axes.x));
+//		Trama[Inicio+12] = ((uint16_t)(vibro_axes.x))>>8;
+//		Trama[Inicio+13] = ((uint16_t)(vibro_axes.y));
+//		Trama[Inicio+14] = ((uint16_t)(vibro_axes.y))>>8;
+//		Trama[Inicio+15] = ((uint16_t)(vibro_axes.z));
+//		Trama[Inicio+16] = ((uint16_t)(vibro_axes.z))>>8;
 
-//		Trama[Inicio+1] = ((uint16_t)(vibro_axes.x));
-//		Trama[Inicio+2] = ((uint16_t)(vibro_axes.x))>>8;
-//		Trama[Inicio+3] = ((uint16_t)(vibro_axes.y));
-//		Trama[Inicio+4] = ((uint16_t)(vibro_axes.y))>>8;
-//		Trama[Inicio+5] = ((uint16_t)(vibro_axes.z));
-//		Trama[Inicio+6] = ((uint16_t)(vibro_axes.z))>>8;
-//
+		Trama[Inicio+0] = ((uint16_t)(vibro_axes.x));
+		Trama[Inicio+1] = ((uint16_t)(vibro_axes.y));
+		Trama[Inicio+2] = ((uint16_t)(vibro_axes.z));
+
 //		Trama[Inicio+5] = ((uint16_t)(vibro_axes.x));
 //		Trama[Inicio+6] = ((uint16_t)(vibro_axes.x))>>8;
 //		Trama[Inicio+7] = ((uint16_t)(vibro_axes.y));
@@ -241,7 +239,7 @@ void TomaMedidas(uint16_t Inicio, uint8_t *Trama)
 
 
 }
-void CreaTrama(uint16_t Inicio, uint8_t *Trama)
+void CreaTrama(uint16_t Inicio, int16_t *Trama)
 {
 	Trama[Inicio] = 0x3e;
 	unsigned int BCC_CRC = 0;
@@ -250,13 +248,13 @@ void CreaTrama(uint16_t Inicio, uint8_t *Trama)
 	Trama[Inicio+len-1]=BCC_CRC;
 }
 
-void Calcula_FFT(uint16_t Inicio, uint8_t *Trama)
+void Calcula_FFT(uint16_t Inicio, int16_t *Trama)
 {
-	while (check == 0){
-		//SE ESPERA A LA INTERRUPCIÓN DE FIFO FULL
-
-	}
-	IIS3DWB_FIFO_Read(&vibro_sensor, fifo_buffer, 3000);
+//	while (check == 0){
+//		//SE ESPERA A LA INTERRUPCIÓN DE FIFO FULL
+//
+//	}
+//	IIS3DWB_FIFO_Read(&vibro_sensor, fifo_buffer, 100);
 }
 
 void EnviaTrama(uint8_t registro[60])

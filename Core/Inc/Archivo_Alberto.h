@@ -25,10 +25,10 @@ int32_t MX_SPI3_DeInit_WRAP(void);
 int32_t leer_registro(uint16_t Address, uint16_t Reg, uint8_t * pData, uint16_t len);
 int32_t escribir_registro(uint16_t Address, uint16_t Reg, uint8_t * pData, uint16_t len);
 
-void InicializaRegistro(uint16_t tamano_buffer, uint8_t *Trama);
+void InicializaRegistro(uint16_t tamano_buffer, int16_t *Trama);
 void InicializaSensores(void);
-void TomaMedidas(uint16_t Inicio, uint8_t *Trama);
-void CreaTrama(uint16_t Inicio, uint8_t *Trama);
+void TomaMedidas(uint16_t Inicio, int16_t *Trama);
+void CreaTrama(uint16_t Inicio, int16_t *Trama);
 void EnviaTrama(uint8_t registro[60]);
 void IIS3DWB_Peripheral_Init(void);
 static void IIS3DWB_Int_Callback(void);
